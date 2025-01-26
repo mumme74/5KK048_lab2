@@ -27,3 +27,46 @@ three = 3.0 # will implicitly get float type
 # explicit type
 pi = float("3.14159265") # explicitly stating that pi variable is float type
 ```
+
+# Task l 
+## Describe a datetime module part (I):
+I choosed the [timedelta](https://docs.python.org/3/library/datetime.html#timedelta-objects)
+
+The timedelta object is part of datetime module. It is used to represent a time duration, aka difference between to date or datetime instances.
+
+Let say we want the time exacly 3 weeks ago. We could get that date using code below.
+```python3
+from datetime import datetime, timedelta
+weeks = timedelta(weeks=-3) # go back 3 week
+date_obj = datetime.now() + weeks # adding negative 21days (-3 weeks)
+print(date_obj)
+
+```
+
+## Practical example of explicit type conversion (II)
+To do an explicit type conversion you have to do an explict typecast.
+example:
+```python
+s = str(123) # convert to a string
+i = int("1") # convert to an integer
+f = float("2.71828182846")
+```
+
+## Whats the origin of the modules in task g?
+- wordrain (external lib, install through anaconda)
+- numpy  (external lib, install through pip or anaconda)
+- scipy  (external lib, install through pip or anaconda)
+- scikit-learn (external lib, install through pip or anaconda)
+- gensim (external lib, install through pip or anaconda)
+- nltk   (external lib, install through pip or anaconda)
+- matplotlib (external lib, install through pip or anaconda)
+- python-bidi (external lib, install through pip or anaconda)
+- reportlab (external lib, install through pip or anaconda)
+- math   (standard/builtin module)
+- typing (standard/builtin module)
+- os     (standard/builtin module)
+- json   (standard/builtin module)
+- pickle (standard/builtin module)
+- sys    (standard/builtin module)
+
+
