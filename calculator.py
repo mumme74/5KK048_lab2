@@ -1,10 +1,26 @@
 # an example file added to repository for course 5KK048 course
 
-# a quick expression based calculatror using a lexer and a recursive descent parser-
+# a quick expression based calculatror using a lexer and a recursive descent parser
+
+# ****  I have tested calculator with: *****
+# 4^0.5 = 2.0
+# 0.75 = 0.75
+# 0,75 = 0.75
+# 3-2  = 1.0
+# 2-3  = -1.0
+# 2,5+2.2 = 4.7
+# 0.3+0.7 = 1.0
+# 0.3 + 0,7 = 1.0
+# 4/2 = 2.0
+# 4/3 = 1.3333333333333333
+# 27^(1/3) = 3.0
+# 1*10^3 = 1000.0
+# (1+2)*3 = 9.0
+# -1 * 2 = -2.0
+
 
 # The different types of tokens
 class Type:
-    Number = 'num'
     Neg    = '-'
     Add    = '+'
     Mul    = '*'
@@ -46,7 +62,8 @@ def lex(src:str):
             case '0'|'1'|'2'|'3'|'4'|'5'|'6'|'7'|'8'|'9':
                 tokens.append(Token(Type.Digit, ch))
             case '.'|',':
-                tokens.append(Token(Type.Dot), '.')
+                tokens.append(Token(Type.Dot, '.'))
+            case ' ': pass
             case _:
                 raise ParseError(f"Unexpected '{ch}' in column {i}")
         i += 1
@@ -68,10 +85,6 @@ class AstNode:
             return self._value
         else:
             return self.left.value()
-
-    def number(self):
-        assert self.tok.type == Type.Number
-        return float(self.tok.text)
 
 # EBNF grammar, hopefully I got it right?!
 # expression => term, { add_op, term }
@@ -99,14 +112,18 @@ class Parse:
         self._idx += 1
         return self._cur()
 
-    def _expect(self, type: list[Type]):
+    def _expect(self, types: list[Type]):
         try:
-            tok = self._next()
-            if tok.type != type:
-                self._idx -= 1
+            tok = self._cur()
+            if tok.type not in types:
                 raise ParseError(f"Expected a '{type}' got a {tok.type}")
         except ParseEof:
             raise ParseError(f"Expected a '{type}' is at end")
+        else:
+            try:
+                return self._next()
+            except ParseEof:
+                pass
 
     # expression => term, { add_op, term }
     def _expression(self):
@@ -114,7 +131,7 @@ class Parse:
         try:
             op = self._add_op()
             right = self._term()
-        except ParseError:
+        except (ParseError, ParseEof):
             return left
         else:
             op.left = left
@@ -127,7 +144,7 @@ class Parse:
         try:
             mul_op = self._mul_op()
             right = self._factor()
-        except ParseError:
+        except (ParseError, ParseEof):
             return left
         else:
             mul_op.left = left
@@ -140,91 +157,98 @@ class Parse:
         try:
             self._expect([Type.Expon])
             right = self._factor()
-        except ParseError:
+        except (ParseError, ParseEof):
             return left
         else:
             node = AstNode(Type.Expon)
-            node.op_fn = lambda _: node.left.value() ** node.right.value()
+            node.op_fn = lambda : node.left.value() ** node.right.value()
             node.left = left
             node.right = right
             return node
 
     # primary    => [ sign ], ( number | '(', expression, ')' )
     def _primary(self):
+        sign = None
         try:
             sign = self._sign()
         except ParseError:
             pass
 
-        tok = self._next()
-        if tok.type == Type.Number:
+        tok = self._cur()
+        if tok.type == Type.Digit:
             if sign:
                 sign.left = self._number()
                 return sign
             return self._number()
         elif tok.type == Type.LParen:
+            self._next()
             expr = self._expression()
             self._expect([Type.RParen])
             if sign:
                 sign.left = expr
                 return sign
             return expr
+        else:
+            raise ParseError(f"Unexpected '{tok.text}'")
 
     # number     => 0-9, {0-9}, ['.', {0-9}]
     def _number(self):
-        self.expect([Type.Digit])
         start = cur = self._cur()
-        digits = [cur.text]
-        cur = self._next()
+        self._expect([Type.Digit])
+        digits = [start.text]
+        try:
+            cur = self._cur()
 
-        while cur.type == Type.Digit:
-            digits.append(cur.text)
-            cur = self._next()
+            while cur.type == Type.Digit:
+                digits.append(cur.text)
+                cur = self._next()
 
-        if cur.type == Type.Dot:
-            digits.append(cur.text)
-        cur = self._next()
+            if cur.type == Type.Dot:
+                digits.append(cur.text)
+                cur = self._next()
 
-        while cur.type == Type.Digit:
-            digits.append(cur.text)
-            cur = self._next()
+            while cur.type == Type.Digit:
+                digits.append(cur.text)
+                cur = self._next()
+        except ParseEof:
+            pass
 
         node = AstNode(start)
-        node.value = float(''.join(digits))
+        node._value = float(''.join(digits))
         return node
 
 
     # add_op     => '+' | '-'
-    def add_op(self):
-        self._expect([Type.Add,Type.Neg])
+    def _add_op(self):
         tok = self._cur()
+        self._expect([Type.Add,Type.Neg])
         node = AstNode(tok)
         if tok.type == Type.Add:
-            node.op_fn = lambda _: node.left.value() + node.right.value()
+            node.op_fn = lambda : node.left.value() + node.right.value()
         else:
-            node.op_fn = lambda _: node.left.value() - node.right.value()
+            node.op_fn = lambda : node.left.value() - node.right.value()
         return node
 
     # mul_op     => '*' / '/'
-    def add_op(self):
-        self._expect([Type.Mul,Type.Div])
+    def _mul_op(self):
         tok = self._cur()
+        self._expect([Type.Mul,Type.Div])
         node = AstNode(tok)
         if tok.type == Type.Mul:
-            node.op_fn = lambda _: node.left.value() * node.right.value()
+            node.op_fn = lambda : node.left.value() * node.right.value()
         else:
-            node.op_fn = lambda _: node.left.value() / node.right.value()
+            node.op_fn = lambda : node.left.value() / node.right.value()
         return node
 
     # sign       => '+' | '-'
-    def sign(self):
+    def _sign(self):
         self._expect([Type.Add,Type.Neg])
         tok = self._cur()
         node = AstNode(tok)
         if tok.type == Type.Add:
-            node.op_fn = lambda _: node.left.value()
+            node.op_fn = lambda : node.left.value()
         else:
-            node.op_fn = lambda _: node.left.value() * -1.0
+            node.op_fn = lambda : node.left.value() * -1.0
         return node
 
 def main():
