@@ -17,6 +17,7 @@
 # 1*10^3 = 1000.0
 # (1+2)*3 = 9.0
 # -1 * 2 = -2.0
+# 7.5*(1+1+1+1+1)+5*2+10 = 57.5
 
 
 # The different types of tokens
@@ -93,7 +94,7 @@ class AstNode:
 # primary    => [ sign ], ( number | '(', expression, ')' )
 # number     => 0-9, {0-9}, ['.', {0-9}]
 # add_op     => '+' | '-'
-# mul_op     => '*' / '/'
+# mul_op     => '*' | '/'
 # sign       => '+' | '-'
 
 
@@ -103,8 +104,11 @@ class Parse:
         self._idx = 0
         self.ast = self._expression()
 
+    def _eof(self):
+        return self._idx >= len(self.tokens)
+
     def _cur(self):
-        if self._idx < len(self.tokens):
+        if not self._eof():
             return self.tokens[self._idx]
         raise ParseEof()
 
@@ -127,16 +131,25 @@ class Parse:
 
     # expression => term, { add_op, term }
     def _expression(self):
-        left = self._term()
-        try:
-            op = self._add_op()
-            right = self._term()
-        except (ParseError, ParseEof):
-            return left
-        else:
-            op.left = left
-            op.right = right
-            return op
+        left = root = self._term()
+        while not self._eof():
+            try:
+                op = self._add_op()
+                right = self._term()
+            except (ParseError, ParseEof):
+                break
+            else:
+                if root == left:
+                    root = op # first op in chain
+                    op.left = left
+                else:
+                    # swap nodes so it constructs a linked list chain
+                    op.left = prev_op.right
+                    prev_op.right = op
+                op.right = right
+                prev_op = op
+
+        return root
 
     # term       => factor, { mul_op, factor }
     def _term(self):
